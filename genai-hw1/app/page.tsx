@@ -1,44 +1,173 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Sidebar from "@/components/sidebar/Sidebar";
+import ChatWindow from "@/components/chat/ChatWindow";
+import ChatInput from "@/components/chat/ChatInput";
+import { Conversation, Folder } from "@/lib/types";
+import {
+  loadConversations,
+  loadFolders,
+  saveConversations,
+  saveFolders,
+} from "@/lib/storage";
+import { loadSettings } from "@/lib/settings";
 
-type Message = {
-  role: "user" | "assistant";
-  content: string;
-};
+function createId() {
+  return crypto.randomUUID();
+}
+
+const AVAILABLE_MODELS = [
+  "llama-3.1-8b-instant",
+  "llama-3.3-70b-versatile",
+  "qwen/qwen3-32b",
+  "openai/gpt-oss-20b",
+  "moonshotai/kimi-k2-instruct",
+];
 
 export default function Home() {
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
-  const [model, setModel] = useState("llama-3.1-8b-instant");
-
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [accentColor, setAccentColor] = useState("#2563eb");
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [temperature, setTemperature] = useState(0.7);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const savedFolders = loadFolders();
+    const savedConversations = loadConversations();
+    const settings = loadSettings();
 
-  useEffect(() => {
-    inputRef.current?.focus();
+    setFolders(savedFolders);
+    setConversations(savedConversations);
+    setAccentColor(settings.accentColor);
+
+    if (savedConversations.length > 0) {
+      setActiveConversationId(savedConversations[0].id);
+    }
+
+    setIsHydrated(true);
   }, []);
 
-  async function sendMessage() {
-    if (!input.trim() || loading) return;
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveFolders(folders);
+  }, [folders, isHydrated]);
 
-    const newMessages: Message[] = [
-      ...messages,
-      { role: "user", content: input },
-    ];
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveConversations(conversations);
+  }, [conversations, isHydrated]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      const settings = loadSettings();
+      setAccentColor(settings.accentColor);
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, []);
+
+  const activeConversation = useMemo(() => {
+    return conversations.find((c) => c.id === activeConversationId) || null;
+  }, [conversations, activeConversationId]);
+
+  function handleNewChat() {
+    const newConversation: Conversation = {
+      id: createId(),
+      title: "New Chat",
+      folderId: null,
+      model: "llama-3.1-8b-instant",
+      messages: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setConversations((prev) => [newConversation, ...prev]);
+    setActiveConversationId(newConversation.id);
+  }
+
+  function handleNewFolder() {
+    const name = window.prompt("資料夾名稱？");
+    if (!name?.trim()) return;
+
+    const newFolder: Folder = {
+      id: createId(),
+      name: name.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    setFolders((prev) => [newFolder, ...prev]);
+  }
+
+  function handleChangeModel(nextModel: string) {
+    if (!activeConversation) return;
+
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === activeConversation.id
+          ? {
+              ...c,
+              model: nextModel,
+              updatedAt: new Date().toISOString(),
+            }
+          : c
+      )
+    );
+  }
+
+  function handleMoveToFolder(conversationId: string, folderId: string | null) {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conversationId
+          ? {
+              ...c,
+              folderId,
+              updatedAt: new Date().toISOString(),
+            }
+          : c
+      )
+    );
+  }
+  function handleDeleteConversation(conversationId: string) {
+    const ok = window.confirm("要刪除這個對話嗎？");
+    if (!ok) return;
+
+    const remaining = conversations.filter((c) => c.id !== conversationId);
+    setConversations(remaining);
+
+    if (activeConversationId === conversationId) {
+      setActiveConversationId(remaining.length > 0 ? remaining[0].id : null);
+    }
+  }
+
+
+  async function handleSend() {
+    if (!input.trim() || loading || !activeConversation) return;
+
+    const userMessage = { role: "user" as const, content: input };
+    const updatedMessages = [...activeConversation.messages, userMessage];
+
+    const updatedConversation: Conversation = {
+      ...activeConversation,
+      title:
+        activeConversation.messages.length === 0
+          ? input.slice(0, 20)
+          : activeConversation.title,
+      messages: updatedMessages,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setConversations((prev) =>
+      prev.map((c) => (c.id === activeConversation.id ? updatedConversation : c))
+    );
 
     setInput("");
     setLoading(true);
-
-    setMessages([
-      ...newMessages,
-      { role: "assistant", content: "" },
-    ]);
 
     try {
       const res = await fetch("/api/chat", {
@@ -47,14 +176,13 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: newMessages,
-          model,
+          messages: updatedMessages,
+          model: activeConversation.model,
         }),
       });
 
       if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error || "API request failed");
+        throw new Error("API request failed");
       }
 
       const reader = res.body.getReader();
@@ -74,9 +202,7 @@ export default function Home() {
 
           const jsonStr = line.replace("data: ", "").trim();
 
-          if (jsonStr === "[DONE]") {
-            break;
-          }
+          if (jsonStr === "[DONE]") break;
 
           try {
             const parsed = JSON.parse(jsonStr);
@@ -85,144 +211,113 @@ export default function Home() {
             if (token) {
               assistantText += token;
 
-              setMessages((prev) => {
-                const updated = [...prev];
-                updated[updated.length - 1] = {
-                  role: "assistant",
-                  content: assistantText,
-                };
-                return updated;
-              });
+              setConversations((prev) =>
+                prev.map((c) =>
+                  c.id === activeConversation.id
+                    ? {
+                        ...c,
+                        messages: [
+                          ...updatedMessages,
+                          { role: "assistant", content: assistantText },
+                        ],
+                        updatedAt: new Date().toISOString(),
+                      }
+                    : c
+                )
+              );
             }
-          } catch {
-            // 忽略非完整 JSON chunk
-          }
+          } catch {}
         }
       }
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "出錯了，請稍後再試。";
-
-      setMessages([
-        ...newMessages,
-        {
-          role: "assistant",
-          content: `錯誤：${errorMessage}`,
-        },
-      ]);
+    } catch {
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === activeConversation.id
+            ? {
+                ...c,
+                messages: [
+                  ...updatedMessages,
+                  { role: "assistant", content: "出錯了，請稍後再試。" },
+                ],
+                updatedAt: new Date().toISOString(),
+              }
+            : c
+        )
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  function clearChat() {
-    setMessages([]);
-  }
-
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <div className="p-4 border-b bg-white flex justify-between items-center gap-4">
-        <h1 className="text-xl font-bold">My LLM Chat</h1>
+    <div className="flex h-screen">
+      <Sidebar
+        folders={folders}
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        accentColor={accentColor}
+        onNewChat={handleNewChat}
+        onNewFolder={handleNewFolder}
+        onSelectConversation={setActiveConversationId}
+        onMoveToFolder={handleMoveToFolder}
+        onDeleteConversation={handleDeleteConversation}
+      />
 
-        <div className="flex items-center gap-3">
-        <select
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          className="border rounded px-3 py-2 bg-white"
-          disabled={loading}
-        >
-          <option value="llama-3.1-8b-instant">
-            llama-3.1-8b-instant（快速）
-          </option>
-          <option value="llama-3.3-70b-versatile">
-            llama-3.3-70b-versatile（高品質）
-          </option>
-          <option value="qwen/qwen3-32b">
-            qwen/qwen3-32b（中文/平衡）
-          </option>
-          <option value="openai/gpt-oss-20b">
-            openai/gpt-oss-20b（平衡）
-          </option>
-          <option value="openai/gpt-oss-120b">
-            openai/gpt-oss-120b（大型）
-          </option>
-          <option value="moonshotai/kimi-k2-instruct">
-            moonshotai/kimi-k2-instruct（中文長文）
-          </option>
-          <option value="moonshotai/kimi-k2-instruct-0905">
-            moonshotai/kimi-k2-instruct-0905（新版）
-          </option>
-          <option value="meta-llama/llama-4-scout-17b-16e-instruct">
-            llama-4-scout-17b-16e-instruct（實驗）
-          </option>
-        </select>
-
-          <button
-            onClick={clearChat}
-            className="text-sm border px-3 py-2 rounded hover:bg-gray-100"
-          >
-            清除
-          </button>
+      <main className="flex-1 flex flex-col">
+      <div className="p-4 border-b bg-white flex items-center justify-between gap-4">
+        <div className="font-semibold min-w-0">
+          {activeConversation ? activeConversation.title : "請先建立新對話"}
         </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((m, i) => {
-          const isUser = m.role === "user";
-
-          return (
-            <div
-              key={i}
-              className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+        {activeConversation && (
+          <div className="flex items-center gap-4">
+            {/* 模型選擇 */}
+            <select
+              value={activeConversation.model}
+              onChange={(e) => handleChangeModel(e.target.value)}
+              disabled={loading}
+              className="border rounded-lg px-3 py-2 bg-white text-sm"
             >
-              <div
-                className={`max-w-[70%] px-4 py-3 rounded-2xl whitespace-pre-wrap ${
-                  isUser ? "bg-blue-600 text-white" : "bg-white border"
-                }`}
-              >
-                {m.content}
-              </div>
-            </div>
-          );
-        })}
+              {AVAILABLE_MODELS.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
 
-        {loading && messages[messages.length - 1]?.content === "" && (
-          <div className="flex justify-start">
-            <div className="bg-white border px-4 py-3 rounded-2xl">
-              AI 思考中...
+            {/* 👉 Temperature 控制 */}
+            <div className="flex items-center gap-2 text-sm">
+              <span>Temp</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.1}
+                value={temperature}
+                onChange={(e) => setTemperature(Number(e.target.value))}
+              />
+              <span className="w-10 text-right">
+                {temperature.toFixed(1)}
+              </span>
             </div>
           </div>
         )}
-
-        <div ref={bottomRef} />
       </div>
+        <ChatWindow
+          messages={activeConversation?.messages || []}
+          loading={loading}
+          accentColor={accentColor}
+        />
 
-      <div className="p-4 border-t bg-white">
-        <div className="flex gap-2">
-          <textarea
-            ref={inputRef}
-            className="flex-1 border rounded-xl p-3 resize-none"
-            rows={2}
-            placeholder="輸入訊息..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-              }
-            }}
-          />
-
-          <button
-            onClick={sendMessage}
-            disabled={loading || !input.trim()}
-            className="bg-black text-white px-4 py-2 rounded-xl disabled:opacity-50"
-          >
-            Send
-          </button>
-        </div>
-      </div>
+        <ChatInput
+          input={input}
+          loading={loading}
+          accentColor={accentColor}
+          inputRef={inputRef}
+          onChange={setInput}
+          onSend={handleSend}
+        />
+      </main>
     </div>
   );
 }
