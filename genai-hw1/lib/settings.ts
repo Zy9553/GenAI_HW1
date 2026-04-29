@@ -1,6 +1,7 @@
 export type AppSettings = {
   theme: "light" | "dark";
   accentColor: string;
+  systemPrompt: string;
 };
 
 const SETTINGS_KEY = "app_settings";
@@ -10,6 +11,7 @@ export function loadSettings(): AppSettings {
     return {
       theme: "light",
       accentColor: "#2563eb",
+      systemPrompt: "",
     };
   }
 
@@ -19,6 +21,7 @@ export function loadSettings(): AppSettings {
     return {
       theme: "light",
       accentColor: "#2563eb",
+      systemPrompt: "",
     };
   }
 
@@ -28,6 +31,7 @@ export function loadSettings(): AppSettings {
     return {
       theme: "light",
       accentColor: "#2563eb",
+      systemPrompt: "",
     };
   }
 }
@@ -38,4 +42,10 @@ export function saveSettings(settings: AppSettings) {
 
 export function clearSettings() {
   localStorage.removeItem(SETTINGS_KEY);
+}
+
+export function applyTheme(theme: AppSettings["theme"]) {
+  if (typeof document === "undefined") return;
+  document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.style.colorScheme = theme;
 }

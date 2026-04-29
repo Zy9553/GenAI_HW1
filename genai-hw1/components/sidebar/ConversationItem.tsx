@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Conversation, Folder } from "@/lib/types";
 
 type Props = {
@@ -43,10 +43,10 @@ export default function ConversationItem({
 
   return (
     <div
-      className="group relative w-full rounded-lg"
-      style={{
-        backgroundColor: active ? `${accentColor}22` : undefined,
-      }}
+      className={`group relative w-full rounded-lg neo-item ${active ? "neo-item--active" : ""}`}
+      style={
+        active ? ({ "--accent": accentColor } as CSSProperties) : undefined
+      }
     >
       <button
         onClick={onClick}
@@ -60,7 +60,7 @@ export default function ConversationItem({
           e.stopPropagation();
           setMenuOpen((prev) => !prev);
         }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-300 transition"
+        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded opacity-0 group-hover:opacity-100 neo-icon-button"
       >
         ...
       </button>
@@ -68,16 +68,16 @@ export default function ConversationItem({
       {menuOpen && (
         <div
           ref={menuRef}
-          className="absolute right-2 top-10 z-20 w-52 rounded-xl border bg-white shadow-lg p-2"
+          className="absolute right-2 top-10 z-20 w-52 rounded-xl neo-card p-2"
         >
-          <div className="px-2 py-1 text-xs text-gray-500">Move to folder</div>
+          <div className="px-2 py-1 text-xs text-[color:var(--text-muted)]">Move to folder</div>
 
           <button
             onClick={() => {
               onMoveToFolder(conversation.id, null);
               setMenuOpen(false);
             }}
-            className="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100"
+            className="w-full text-left px-3 py-2 text-sm rounded hover:bg-[var(--surface-strong)]"
           >
             Ungrouped
           </button>
@@ -89,20 +89,20 @@ export default function ConversationItem({
                 onMoveToFolder(conversation.id, folder.id);
                 setMenuOpen(false);
               }}
-              className="w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100"
+              className="w-full text-left px-3 py-2 text-sm rounded hover:bg-[var(--surface-strong)]"
             >
               {folder.name}
             </button>
           ))}
 
-          <div className="my-2 border-t" />
+          <div className="my-2 border-t border-[color:var(--border)]" />
 
           <button
             onClick={() => {
               onDeleteConversation(conversation.id);
               setMenuOpen(false);
             }}
-            className="w-full text-left px-3 py-2 text-sm rounded text-red-600 hover:bg-red-50"
+            className="w-full text-left px-3 py-2 text-sm rounded text-[color:var(--neon-magenta)] hover:bg-[var(--danger-muted)]"
           >
             Delete conversation
           </button>

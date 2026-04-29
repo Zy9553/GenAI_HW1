@@ -1,4 +1,4 @@
-import { Conversation, Folder } from "./types";
+import { Conversation, Folder, UserMemoryItem } from "./types";
 
 const FOLDERS_KEY = "folders";
 const CONVERSATIONS_KEY = "conversations";
@@ -34,6 +34,16 @@ export function clearAllFolders() {
 
 export function clearUserMemory() {
   localStorage.removeItem(USER_MEMORY_KEY);
+}
+
+export function loadUserMemory(): UserMemoryItem[] {
+  if (typeof window === "undefined") return [];
+  const raw = localStorage.getItem(USER_MEMORY_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+export function saveUserMemory(memory: UserMemoryItem[]) {
+  localStorage.setItem(USER_MEMORY_KEY, JSON.stringify(memory));
 }
 
 export function clearAllLocalData() {

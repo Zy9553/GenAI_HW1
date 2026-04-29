@@ -24,7 +24,7 @@ export default function FolderItem({
 }: Props) {
   return (
     <div className="mb-4">
-      <div className="font-semibold text-sm mb-2">📁 {folder.name}</div>
+      <div className="cyber-kicker mb-2">📁 {folder.name}</div>
       <div className="space-y-1 pl-2">
         {conversations.map((conversation) => (
           <ConversationItem

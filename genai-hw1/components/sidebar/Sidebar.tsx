@@ -30,13 +30,13 @@ export default function Sidebar({
   const ungrouped = conversations.filter((c) => c.folderId === null);
 
   return (
-    <aside className="w-72 border-r bg-white p-4 overflow-y-auto flex flex-col">
+    <aside className="w-72 p-4 overflow-y-auto flex flex-col cyber-sidebar">
       <div className="flex-1">
         <NewChatButton onClick={onNewChat} accentColor={accentColor} />
 
         <button
           onClick={onNewFolder}
-          className="w-full border rounded-lg px-4 py-2 mb-4"
+          className="w-full rounded-lg px-4 py-2 mb-4 neo-button neo-button--ghost"
         >
           + New Folder
         </button>
@@ -64,7 +64,7 @@ export default function Sidebar({
 
           {ungrouped.length > 0 && (
             <div>
-              <div className="font-semibold text-sm mb-2">Ungrouped</div>
+              <div className="cyber-kicker mb-2">Ungrouped</div>
               <div className="space-y-1">
                 {ungrouped.map((conversation) => (
                   <ConversationItem
@@ -84,10 +84,10 @@ export default function Sidebar({
         </div>
       </div>
 
-      <div className="border-t pt-4 mt-4">
+      <div className="border-t border-[color:var(--border)] pt-4 mt-4">
         <Link
           href="/settings"
-          className="block w-full text-left border rounded-lg px-3 py-2 text-sm hover:bg-gray-50"
+          className="block w-full text-left rounded-lg px-3 py-2 text-sm neo-button neo-button--ghost"
         >
           Settings
         </Link>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import {
   clearAllConversations,
@@ -9,6 +9,7 @@ import {
 } from "@/lib/storage";
 import {
   AppSettings,
+  applyTheme,
   clearSettings,
   loadSettings,
   saveSettings,
@@ -153,18 +154,18 @@ function ColorPicker({
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <div
-          className="w-14 h-14 rounded-xl border shadow-sm"
+          className="w-14 h-14 rounded-xl border border-[color:var(--border)] shadow-sm"
           style={{ backgroundColor: color }}
         />
         <div>
-          <div className="text-sm text-gray-500">目前顏色</div>
+          <div className="text-sm text-[color:var(--text-muted)]">目前顏色</div>
           <div className="font-mono text-sm">{color.toUpperCase()}</div>
         </div>
       </div>
 
       <div
         ref={areaRef}
-        className="relative w-full h-56 rounded-2xl cursor-crosshair border overflow-hidden"
+        className="relative w-full h-56 rounded-2xl cursor-crosshair overflow-hidden neo-card"
         style={{
           backgroundColor: hsvToHex(hue, 1, 1),
           backgroundImage:
@@ -198,7 +199,7 @@ function ColorPicker({
           max={360}
           value={hue}
           onChange={(e) => setHue(Number(e.target.value))}
-          className="w-full"
+          className="w-full neo-range"
         />
       </div>
 
@@ -208,7 +209,7 @@ function ColorPicker({
           type="color"
           value={color}
           onChange={(e) => onChange(e.target.value)}
-          className="w-16 h-10 p-1 border rounded-lg bg-white"
+          className="w-16 h-10 p-1 rounded-lg neo-input"
         />
       </div>
     </div>
@@ -219,6 +220,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>({
     theme: "light",
     accentColor: "#2563eb",
+    systemPrompt: "",
   });
 
   useEffect(() => {
@@ -227,6 +229,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     saveSettings(settings);
+    applyTheme(settings.theme);
   }, [settings]);
 
   function handleThemeChange(theme: "light" | "dark") {
@@ -240,6 +243,13 @@ export default function SettingsPage() {
     setSettings((prev) => ({
       ...prev,
       accentColor: color,
+    }));
+  }
+
+  function handleSystemPromptChange(systemPrompt: string) {
+    setSettings((prev) => ({
+      ...prev,
+      systemPrompt,
     }));
   }
 
@@ -267,39 +277,49 @@ export default function SettingsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-6">
+    <main className="min-h-screen bg-[var(--surface-muted)] p-6">
       <div className="max-w-3xl mx-auto">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Settings</h1>
+          <h1 className="text-2xl font-bold cyber-title">Settings</h1>
           <Link
             href="/"
-            className="border rounded-lg px-4 py-2 bg-white hover:bg-gray-100"
+            className="rounded-lg px-4 py-2 neo-button neo-button--ghost"
           >
             回聊天頁
           </Link>
         </div>
 
         <div className="space-y-6">
-          <section className="bg-white border rounded-2xl p-5">
-            <h2 className="text-lg font-semibold mb-4">外觀設定</h2>
+          <section className="rounded-2xl p-5 cyber-panel cyber-panel--glass">
+            <h2 className="text-lg font-semibold mb-4 cyber-title">外觀設定</h2>
 
             <div className="mb-6">
               <div className="font-medium mb-2">Theme</div>
               <div className="flex gap-3">
                 <button
                   onClick={() => handleThemeChange("light")}
-                  className={`px-4 py-2 rounded-lg border ${
-                    settings.theme === "light" ? "bg-gray-200" : "bg-white"
+                  className={`px-4 py-2 rounded-lg neo-button ${
+                    settings.theme === "light" ? "neo-button--accent" : "neo-button--ghost"
                   }`}
+                  style={
+                    settings.theme === "light"
+                      ? ({ "--accent": "#35f4ff" } as CSSProperties)
+                      : undefined
+                  }
                 >
                   Light
                 </button>
 
                 <button
                   onClick={() => handleThemeChange("dark")}
-                  className={`px-4 py-2 rounded-lg border ${
-                    settings.theme === "dark" ? "bg-gray-200" : "bg-white"
+                  className={`px-4 py-2 rounded-lg neo-button ${
+                    settings.theme === "dark" ? "neo-button--accent" : "neo-button--ghost"
                   }`}
+                  style={
+                    settings.theme === "dark"
+                      ? ({ "--accent": "#9b6bff" } as CSSProperties)
+                      : undefined
+                  }
                 >
                   Dark
                 </button>
@@ -315,27 +335,43 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          <section className="bg-white border rounded-2xl p-5">
-            <h2 className="text-lg font-semibold mb-4">記憶與資料</h2>
+          <section className="rounded-2xl p-5 cyber-panel cyber-panel--glass">
+            <h2 className="text-lg font-semibold mb-4 cyber-title">系統提示（System Prompt）</h2>
+
+            <div>
+              <div className="text-sm text-[color:var(--text-subtle)] mb-3">
+                全局系統提示將應用於所有新對話。可在每個對話中個別修改。
+              </div>
+              <textarea
+                value={settings.systemPrompt}
+                onChange={(e) => handleSystemPromptChange(e.target.value)}
+                placeholder="輸入默認的系統提示..."
+                className="w-full h-32 rounded-lg p-3 font-mono text-sm neo-textarea text-[color:var(--foreground)] placeholder:text-[color:var(--text-muted)]"
+              />
+            </div>
+          </section>
+
+          <section className="rounded-2xl p-5 cyber-panel cyber-panel--glass">
+            <h2 className="text-lg font-semibold mb-4 cyber-title">記憶與資料</h2>
 
             <div className="space-y-3">
               <button
                 onClick={handleClearAllConversations}
-                className="w-full text-left border rounded-lg px-4 py-3 hover:bg-gray-50"
+                className="w-full text-left rounded-lg px-4 py-3 neo-button neo-button--ghost"
               >
                 清除全部對話
               </button>
 
               <button
                 onClick={handleClearAllFolders}
-                className="w-full text-left border rounded-lg px-4 py-3 hover:bg-gray-50"
+                className="w-full text-left rounded-lg px-4 py-3 neo-button neo-button--ghost"
               >
                 清除全部資料夾
               </button>
 
               <button
                 onClick={handleClearAllData}
-                className="w-full text-left border rounded-lg px-4 py-3 text-red-600 hover:bg-red-50"
+                className="w-full text-left rounded-lg px-4 py-3 neo-button neo-button--ghost text-[color:var(--neon-magenta)] hover:bg-[var(--danger-muted)]"
               >
                 清除所有本地記憶與設定
               </button>
